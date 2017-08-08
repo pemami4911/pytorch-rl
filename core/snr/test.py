@@ -35,11 +35,22 @@ class MLP(nn.Module):
         preds = self.prediction(self.fc3(out2))
         return preds
 
-class SNR(optim.Optimizer):
+class GaussNewton(optim.Optimizer):
     """
-    Implements a "Stochastic Newton-Rhapson" optimizer: 
+    Implements a "Gauss-Newton" optimizer: 
         
-        theta_t = theta_t - inv(grad_f * grad_f^T) * grad_f
+        theta_t+1 = theta_t - inv(Jac_g^T Jac_g) * grad_f
+
+    Here, f(theta) is computed via backpropagation, and is the
+    gradient of the network loss wrt the parameters (a N dim vector).
+
+    g(theta) = (target - prediction)
+
+    where g(theta) is the vector of the differences between the targets
+    and the predictions. Note that the MSE loss is the sum of squares 
+    of g(theta) divided by the minibatch size. Jac_g is the Jacobian of g
+    wrt the parameters of the network. 
+    
     """
     def __init__(self, params):
         defaults = {}
@@ -69,7 +80,9 @@ class SNR(optim.Optimizer):
                 state['step'] = 0
 
             state['step'] += 1
-    
+        
+        # TODO: Change to Gauss-Newton computation 
+
         grads = torch.cat(grads)
         # outer product
         outer = torch.ger(grads, grads).data
