@@ -11,6 +11,7 @@ import torch.optim as optim
 
 from utils.helpers import loggerConfig
 from utils.sharedAdam import SharedAdam
+from utils.snr import SNR
 
 CONFIGS = [
 # agent_type, env_type,    game,                       model_type, memory_type
@@ -29,13 +30,13 @@ class Params(object):   # NOTE: shared across all modules
 
         # training signature
         self.machine     = "alienware"  # "machine_id"
-        self.timestamp   = "17052100"   # "yymmdd##"
+        self.timestamp   = "17080500"   # "yymmdd##"
         # training configuration
         self.mode        = 1            # 1(train) | 2(test model_file)
-        self.config      = 5
+        self.config      = 1
 
         self.seed        = 123
-        self.render      = False        # whether render the window from the original envs or not
+        self.render      = True         # whether render the window from the original envs or not
         self.visualize   = True         # whether do online plotting and stuff or not
         self.save_best   = False        # save model w/ highest reward if True, otherwise always save the latest model
 
@@ -152,6 +153,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.value_criteria = F.smooth_l1_loss
             self.optim          = optim.Adam
             # self.optim          = optim.RMSprop
+            #self.optim          = SNR
         elif self.agent_type == "a3c":
             self.value_criteria = nn.MSELoss()
             self.optim          = SharedAdam    # share momentum across learners

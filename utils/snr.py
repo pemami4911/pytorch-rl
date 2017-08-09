@@ -35,7 +35,7 @@ class MLP(nn.Module):
         preds = self.prediction(self.fc3(out2))
         return preds
 
-class GaussNewton(optim.Optimizer):
+class SNR(optim.Optimizer):
     """
     Implements a "Gauss-Newton" optimizer: 
         
@@ -55,6 +55,7 @@ class GaussNewton(optim.Optimizer):
     def __init__(self, params):
         defaults = {}
         super(SNR, self).__init__(params, defaults)
+        self.A_t = None
 
     def step(self, closure=None):
 
@@ -63,6 +64,7 @@ class GaussNewton(optim.Optimizer):
             loss = closure()
 
         grads = []    
+        step = 0
         # flatten param groups into single Tensor of size [n_params]
         for group in self.param_groups:
             for p in group['params']:
@@ -78,19 +80,36 @@ class GaussNewton(optim.Optimizer):
             # State init
             if len(state) == 0:
                 state['step'] = 0
-
+                
             state['step'] += 1
-        
+            step = state['step']
+
         # TODO: Change to Gauss-Newton computation 
 
+        
         grads = torch.cat(grads)
+    
+        # initialize A_t matrix
+        if self.A_t is None:
+            self.A_t = 100 * torch.eye(len(grads)).cuda()
+
         # outer product
         outer = torch.ger(grads, grads).data
-        # inverse
-        #inv_outer = torch.inverse(outer)
-        inv_outer = torch.FloatTensor(np.linalg.pinv(outer.numpy()))
+
+        gamma = (1. / step) ** 0.85
+        alpha = 1. / step
+
+        self.A_t += gamma * (outer - self.A_t)
+        
+        if step < 2000: 
+            inv_outer = -1 * torch.eye(len(grads)).cuda()
+        else:
+            # inverse
+            damping = 0.00001 * torch.eye(len(grads)).cuda()
+            inv_outer = torch.inverse(damping + self.A_t)
+        #inv_outer = torch.FloatTensor(np.linalg.pinv(self.A_t.numpy()))
         # matrix vector product
-        delta = torch.mv(inv_outer, grads.data)
+        delta = alpha * torch.mv(inv_outer, grads.data)
 
         start = 0
         for group in self.param_groups:
@@ -107,33 +126,34 @@ class GaussNewton(optim.Optimizer):
                 p.data = p.data.add(-delta[start:start+p_len])
                 start += p_len
 
-model = MLP()
-print(model)
-loss_fn = nn.MSELoss()
-optimizer = SNR(model.parameters())
-#optimizer = optim.Adam(model.parameters(), lr = 0.01)
-for i in range(100):
-    data = batch_data(32)
-    x = Variable(data[0].view(32, 1))
-    optimizer.zero_grad()
-    p = model(x)
-    y = Variable(data[1].view(32, 1))
-    l = loss_fn(p, y)
-    if i % 10 == 0:
-        print(l.data[0])
-    l.backward()
-    optimizer.step()
+if __name__ == '__main__':
+    model = MLP()
+    print(model)
+    loss_fn = nn.MSELoss()
+    optimizer = SNR(model.parameters())
+    #optimizer = optim.Adam(model.parameters(), lr = 0.01)
+    for i in range(100):
+        data = batch_data(32)
+        x = Variable(data[0].view(32, 1))
+        optimizer.zero_grad()
+        p = model(x)
+        y = Variable(data[1].view(32, 1))
+        l = loss_fn(p, y)
+        if i % 10 == 0:
+            print(l.data[0])
+        l.backward()
+        optimizer.step()
 
-print('<========= BEGIN TEST ==========>')
+    print('<========= BEGIN TEST ==========>')
 
-# test
-for i in range(500):
-    data = batch_data(32, 6)
-    x = Variable(data[0].view(32, 1))
-    p = model(x)
-    y = Variable(data[1].view(32, 1))
-    l = loss_fn(p, y)
-    if i % 10 == 0:
-        print(l.data[0])
+    # test
+    for i in range(500):
+        data = batch_data(32, 6)
+        x = Variable(data[0].view(32, 1))
+        p = model(x)
+        y = Variable(data[1].view(32, 1))
+        l = loss_fn(p, y)
+        if i % 10 == 0:
+            print(l.data[0])
 
     

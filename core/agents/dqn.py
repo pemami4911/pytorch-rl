@@ -141,7 +141,8 @@ class DQNAgent(Agent):
     def _epsilon_greedy(self, q_values_ts):
         # calculate epsilon
         if self.training:   # linearly anneal epsilon
-            self.eps = self.eps_end + max(0, (self.eps_start - self.eps_end) * (self.eps_decay - max(0, self.step - self.learn_start)) / self.eps_decay)
+            #self.eps = self.eps_end + max(0, (self.eps_start - self.eps_end) * (self.eps_decay - max(0, self.step - self.learn_start)) / self.eps_decay)
+            self.eps = 1.
         else:
             self.eps = self.eps_eval
         # choose action
@@ -221,6 +222,7 @@ class DQNAgent(Agent):
         self.eps = self.eps_start
         # self.optimizer = self.optim(self.model.parameters(), lr=self.lr, alpha=0.95, eps=0.01)  # RMSprop
         self.optimizer = self.optim(self.model.parameters(), lr=self.lr)    # Adam
+        #self.optimizer = self.optim(self.model.parameters())
 
         self.logger.warning("<===================================> Training ...")
         self.training = True
